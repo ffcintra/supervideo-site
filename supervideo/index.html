@@ -343,7 +343,6 @@ src="https://www.facebook.com/tr?id=982539074640717&ev=PageView&noscript=1"
       <a href="https://www.youtube.com/@supervideovarejo/shorts" target="_blank" class="btn-out" onclick="fbq('track','ViewContent')" style="font-size:14px;padding:11px 22px;">Ver canal completo →</a>
     </div>
     <div class="vgrid rv" id="portfolio-grid">
-      <!-- Vídeos carregados dinamicamente via YouTube RSS -->
       <a href="https://www.youtube.com/shorts/H_gZet6mYrk" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 1">
         <img src="https://i.ytimg.com/vi/H_gZet6mYrk/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 1" loading="lazy"/>
         <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
@@ -548,70 +547,98 @@ const io = new IntersectionObserver(entries => {
 document.querySelectorAll('.rv').forEach(r => io.observe(r));
 </script>
 
-<!-- PORTFÓLIO DINÂMICO: carrega últimos vídeos do canal -->
 <script>
 (function() {
-  // ID do canal @supervideovarejo
-  var CHANNEL_ID = 'UCHuWz6K-JEbJzEfmHVbhFEg';
   var GRID = document.getElementById('portfolio-grid');
-  var PROXY = 'https://api.allorigins.win/get?url=';
-  var RSS_URL = encodeURIComponent(
-    'https://www.youtube.com/feeds/videos.xml?channel_id=' + CHANNEL_ID
-  );
+  // RSS do canal (funciona com handle @)
+  var RSS = 'https://www.youtube.com/feeds/videos.xml?user=supervideovarejo';
+  // Proxies CORS em ordem de tentativa
+  var PROXIES = [
+    'https://corsproxy.io/?',
+    'https://api.allorigins.win/raw?url=',
+    'https://thingproxy.freeboard.io/fetch/'
+  ];
 
-  function extractVideoId(url) {
-    var m = url.match(/video[:/]([A-Za-z0-9_-]{11})/);
-    return m ? m[1] : null;
+  function extractId(str) {
+    var m = str.match(/[a-zA-Z0-9_-]{11}/);
+    return m ? m[0] : null;
   }
 
   function buildCard(videoId, title) {
-    var url = 'https://www.youtube.com/shorts/' + videoId;
-    var thumb = 'https://i.ytimg.com/vi/' + videoId + '/maxresdefault.jpg';
     var a = document.createElement('a');
-    a.href = url;
+    a.href = 'https://www.youtube.com/shorts/' + videoId;
     a.target = '_blank';
     a.className = 'vid-card';
-    a.title = title || 'Vídeo Super Vídeo';
     a.setAttribute('onclick', "fbq('track','ViewContent')");
+    var safeTitle = (title || 'Vídeo Solar').replace(/[<>"']/g,'');
     a.innerHTML =
-      '<img src="' + thumb + '" width="400" height="711" alt="' + (title || 'Vídeo Solar').replace(/"/g,'') + '" loading="lazy" onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"/>' +
+      '<img src="https://i.ytimg.com/vi/' + videoId + '/maxresdefault.jpg"' +
+      ' onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"' +
+      ' width="400" height="711" alt="' + safeTitle + '" loading="lazy"/>' +
       '<div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>' +
       '<div class="vid-label">Assistir &#8599;</div>';
     return a;
   }
 
-  fetch(PROXY + RSS_URL)
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var parser = new DOMParser();
-      var xml = parser.parseFromString(data.contents, 'text/xml');
-      var entries = xml.querySelectorAll('entry');
-      if (!entries || entries.length === 0) return;
+  function parseAndRender(xmlText) {
+    var parser = new DOMParser();
+    var doc = parser.parseFromString(xmlText, 'text/xml');
+    var entries = doc.querySelectorAll('entry');
+    if (!entries.length) { console.warn('[SuperVídeo] RSS sem entries'); return; }
 
-      var recent = Array.from(entries).slice(0, 4);
-      var cards = recent.map(function(entry) {
-        var idNode = entry.getElementsByTagNameNS('http://www.youtube.com/xml/schemas/2015', 'videoId')[0];
-        var titleNode = entry.querySelector('title');
-        var videoId = null;
-        if (idNode) {
-          videoId = idNode.textContent.trim();
-        } else {
-          var idEl = entry.querySelector('id');
-          if (idEl) videoId = extractVideoId(idEl.textContent);
-        }
-        var title = titleNode ? titleNode.textContent.trim() : '';
-        return videoId ? buildCard(videoId, title) : null;
-      }).filter(Boolean);
+    var cards = [];
+    Array.from(entries).slice(0, 4).forEach(function(entry) {
+      // yt:videoId namespace
+      var vidEl = entry.getElementsByTagNameNS('http://www.youtube.com/xml/schemas/2015','videoId')[0];
+      var videoId = vidEl ? vidEl.textContent.trim() : null;
+      // fallback: extrair do link ou id
+      if (!videoId) {
+        var linkEl = entry.querySelector('link');
+        if (linkEl) videoId = extractId(linkEl.getAttribute('href') || '');
+      }
+      if (!videoId) {
+        var idEl = entry.querySelector('id');
+        if (idEl) videoId = extractId(idEl.textContent);
+      }
+      var titleEl = entry.querySelector('title');
+      var title = titleEl ? titleEl.textContent.trim() : '';
+      if (videoId) cards.push(buildCard(videoId, title));
+    });
 
-      if (cards.length === 0) return;
+    if (!cards.length) { console.warn('[SuperVídeo] Nenhum ID extraído'); return; }
+    GRID.innerHTML = '';
+    cards.forEach(function(c) { GRID.appendChild(c); io.observe(c); });
+    console.log('[SuperVídeo] ' + cards.length + ' vídeos carregados do YouTube');
+  }
 
-      GRID.innerHTML = '';
-      cards.forEach(function(card) {
-        GRID.appendChild(card);
-        io.observe(card);
+  // Tenta os proxies em sequência
+  function tryProxy(index, urls) {
+    if (index >= urls.length) {
+      // Tenta com handle em vez de user
+      if (urls === PROXIES) {
+        console.warn('[SuperVídeo] Tentando RSS com channel_id...');
+        var RSS2 = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCHuWz6K-JEbJzEfmHVbhFEg';
+        tryProxy(0, PROXIES.map(function(p){ return [p, RSS2]; }));
+      }
+      return;
+    }
+    var target = Array.isArray(urls[index]) ? urls[index][0] + encodeURIComponent(urls[index][1]) : urls[index] + encodeURIComponent(RSS);
+    fetch(target)
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.text();
+      })
+      .then(function(text) {
+        if (text.indexOf('<entry>') === -1) throw new Error('Sem entries');
+        parseAndRender(text);
+      })
+      .catch(function(err) {
+        console.warn('[SuperVídeo] Proxy ' + index + ' falhou:', err.message);
+        tryProxy(index + 1, urls);
       });
-    })
-    .catch(function() { /* mantém os cards estáticos de fallback */ });
+  }
+
+  tryProxy(0, PROXIES);
 })();
 </script>
 </body>
