@@ -342,27 +342,28 @@ src="https://www.facebook.com/tr?id=982539074640717&ev=PageView&noscript=1"
       </div>
       <a href="https://www.youtube.com/@supervideovarejo/shorts" target="_blank" class="btn-out" onclick="fbq('track','ViewContent')" style="font-size:14px;padding:11px 22px;">Ver canal completo →</a>
     </div>
-    <div class="vgrid rv">
+    <div class="vgrid rv" id="portfolio-grid">
+      <!-- Vídeos carregados dinamicamente via YouTube RSS -->
       <a href="https://www.youtube.com/shorts/H_gZet6mYrk" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 1">
-  <img src="https://i.ytimg.com/vi/H_gZet6mYrk/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 1" loading="lazy"/>
-  <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-  <div class="vid-label">Assistir ↗</div>
-</a>
-<a href="https://www.youtube.com/shorts/eDAVTiL1DWo" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 2">
-  <img src="https://i.ytimg.com/vi/eDAVTiL1DWo/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 2" loading="lazy"/>
-  <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-  <div class="vid-label">Assistir ↗</div>
-</a>
-<a href="https://www.youtube.com/shorts/w_N6q0qfijc" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 3">
-  <img src="https://i.ytimg.com/vi/w_N6q0qfijc/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 3" loading="lazy"/>
-  <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-  <div class="vid-label">Assistir ↗</div>
-</a>
-<a href="https://www.youtube.com/shorts/mEvIjG3TM-8" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 4">
-  <img src="https://i.ytimg.com/vi/mEvIjG3TM-8/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 4" loading="lazy"/>
-  <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
-  <div class="vid-label">Assistir ↗</div>
-</a>
+        <img src="https://i.ytimg.com/vi/H_gZet6mYrk/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 1" loading="lazy"/>
+        <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="vid-label">Assistir ↗</div>
+      </a>
+      <a href="https://www.youtube.com/shorts/eDAVTiL1DWo" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 2">
+        <img src="https://i.ytimg.com/vi/eDAVTiL1DWo/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 2" loading="lazy"/>
+        <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="vid-label">Assistir ↗</div>
+      </a>
+      <a href="https://www.youtube.com/shorts/w_N6q0qfijc" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 3">
+        <img src="https://i.ytimg.com/vi/w_N6q0qfijc/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 3" loading="lazy"/>
+        <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="vid-label">Assistir ↗</div>
+      </a>
+      <a href="https://www.youtube.com/shorts/mEvIjG3TM-8" target="_blank" class="vid-card" onclick="fbq('track','ViewContent')" title="Vídeo Solar 4">
+        <img src="https://i.ytimg.com/vi/mEvIjG3TM-8/maxresdefault.jpg" width="400" height="711" alt="Vídeo Solar 4" loading="lazy"/>
+        <div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+        <div class="vid-label">Assistir ↗</div>
+      </a>
     </div>
   </div>
 </section>
@@ -545,6 +546,73 @@ const io = new IntersectionObserver(entries => {
   entries.forEach(e => { if(e.isIntersecting){ e.target.classList.add('on'); io.unobserve(e.target); } });
 }, {threshold:0.08});
 document.querySelectorAll('.rv').forEach(r => io.observe(r));
+</script>
+
+<!-- PORTFÓLIO DINÂMICO: carrega últimos vídeos do canal -->
+<script>
+(function() {
+  // ID do canal @supervideovarejo
+  var CHANNEL_ID = 'UCHuWz6K-JEbJzEfmHVbhFEg';
+  var GRID = document.getElementById('portfolio-grid');
+  var PROXY = 'https://api.allorigins.win/get?url=';
+  var RSS_URL = encodeURIComponent(
+    'https://www.youtube.com/feeds/videos.xml?channel_id=' + CHANNEL_ID
+  );
+
+  function extractVideoId(url) {
+    var m = url.match(/video[:/]([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : null;
+  }
+
+  function buildCard(videoId, title) {
+    var url = 'https://www.youtube.com/shorts/' + videoId;
+    var thumb = 'https://i.ytimg.com/vi/' + videoId + '/maxresdefault.jpg';
+    var a = document.createElement('a');
+    a.href = url;
+    a.target = '_blank';
+    a.className = 'vid-card';
+    a.title = title || 'Vídeo Super Vídeo';
+    a.setAttribute('onclick', "fbq('track','ViewContent')");
+    a.innerHTML =
+      '<img src="' + thumb + '" width="400" height="711" alt="' + (title || 'Vídeo Solar').replace(/"/g,'') + '" loading="lazy" onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"/>' +
+      '<div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>' +
+      '<div class="vid-label">Assistir &#8599;</div>';
+    return a;
+  }
+
+  fetch(PROXY + RSS_URL)
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var parser = new DOMParser();
+      var xml = parser.parseFromString(data.contents, 'text/xml');
+      var entries = xml.querySelectorAll('entry');
+      if (!entries || entries.length === 0) return;
+
+      var recent = Array.from(entries).slice(0, 4);
+      var cards = recent.map(function(entry) {
+        var idNode = entry.getElementsByTagNameNS('http://www.youtube.com/xml/schemas/2015', 'videoId')[0];
+        var titleNode = entry.querySelector('title');
+        var videoId = null;
+        if (idNode) {
+          videoId = idNode.textContent.trim();
+        } else {
+          var idEl = entry.querySelector('id');
+          if (idEl) videoId = extractVideoId(idEl.textContent);
+        }
+        var title = titleNode ? titleNode.textContent.trim() : '';
+        return videoId ? buildCard(videoId, title) : null;
+      }).filter(Boolean);
+
+      if (cards.length === 0) return;
+
+      GRID.innerHTML = '';
+      cards.forEach(function(card) {
+        GRID.appendChild(card);
+        io.observe(card);
+      });
+    })
+    .catch(function() { /* mantém os cards estáticos de fallback */ });
+})();
 </script>
 </body>
 </html>
