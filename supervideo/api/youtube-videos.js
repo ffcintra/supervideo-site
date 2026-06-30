@@ -7,10 +7,10 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate'); // cache 1h na CDN
 
-  // Tenta primeiro com handle, depois com channel_id
+  // Channel ID correto confirmado via HTML do canal: UCx5e1Gij8I6SmS1IlIBz_Pg
   const urls = [
+    'https://www.youtube.com/feeds/videos.xml?channel_id=UCx5e1Gij8I6SmS1IlIBz_Pg',
     'https://www.youtube.com/feeds/videos.xml?user=supervideovarejo',
-    'https://www.youtube.com/feeds/videos.xml?channel_id=UCHuWz6K-JEbJzEfmHVbhFEg',
   ];
 
   let xml = null;
