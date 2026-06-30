@@ -548,21 +548,9 @@ document.querySelectorAll('.rv').forEach(r => io.observe(r));
 </script>
 
 <script>
+// Portfólio dinâmico — chama a Serverless Function do Vercel em /api/youtube-videos
 (function() {
   var GRID = document.getElementById('portfolio-grid');
-  // RSS do canal (funciona com handle @)
-  var RSS = 'https://www.youtube.com/feeds/videos.xml?user=supervideovarejo';
-  // Proxies CORS em ordem de tentativa
-  var PROXIES = [
-    'https://corsproxy.io/?',
-    'https://api.allorigins.win/raw?url=',
-    'https://thingproxy.freeboard.io/fetch/'
-  ];
-
-  function extractId(str) {
-    var m = str.match(/[a-zA-Z0-9_-]{11}/);
-    return m ? m[0] : null;
-  }
 
   function buildCard(videoId, title) {
     var a = document.createElement('a');
@@ -570,75 +558,30 @@ document.querySelectorAll('.rv').forEach(r => io.observe(r));
     a.target = '_blank';
     a.className = 'vid-card';
     a.setAttribute('onclick', "fbq('track','ViewContent')");
-    var safeTitle = (title || 'Vídeo Solar').replace(/[<>"']/g,'');
+    var safe = (title || 'Vídeo Solar').replace(/[<>"']/g, '');
     a.innerHTML =
       '<img src="https://i.ytimg.com/vi/' + videoId + '/maxresdefault.jpg"' +
       ' onerror="this.src=\'https://i.ytimg.com/vi/' + videoId + '/hqdefault.jpg\'"' +
-      ' width="400" height="711" alt="' + safeTitle + '" loading="lazy"/>' +
+      ' width="400" height="711" alt="' + safe + '" loading="lazy"/>' +
       '<div class="vid-play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>' +
       '<div class="vid-label">Assistir &#8599;</div>';
     return a;
   }
 
-  function parseAndRender(xmlText) {
-    var parser = new DOMParser();
-    var doc = parser.parseFromString(xmlText, 'text/xml');
-    var entries = doc.querySelectorAll('entry');
-    if (!entries.length) { console.warn('[SuperVídeo] RSS sem entries'); return; }
-
-    var cards = [];
-    Array.from(entries).slice(0, 4).forEach(function(entry) {
-      // yt:videoId namespace
-      var vidEl = entry.getElementsByTagNameNS('http://www.youtube.com/xml/schemas/2015','videoId')[0];
-      var videoId = vidEl ? vidEl.textContent.trim() : null;
-      // fallback: extrair do link ou id
-      if (!videoId) {
-        var linkEl = entry.querySelector('link');
-        if (linkEl) videoId = extractId(linkEl.getAttribute('href') || '');
-      }
-      if (!videoId) {
-        var idEl = entry.querySelector('id');
-        if (idEl) videoId = extractId(idEl.textContent);
-      }
-      var titleEl = entry.querySelector('title');
-      var title = titleEl ? titleEl.textContent.trim() : '';
-      if (videoId) cards.push(buildCard(videoId, title));
-    });
-
-    if (!cards.length) { console.warn('[SuperVídeo] Nenhum ID extraído'); return; }
-    GRID.innerHTML = '';
-    cards.forEach(function(c) { GRID.appendChild(c); io.observe(c); });
-    console.log('[SuperVídeo] ' + cards.length + ' vídeos carregados do YouTube');
-  }
-
-  // Tenta os proxies em sequência
-  function tryProxy(index, urls) {
-    if (index >= urls.length) {
-      // Tenta com handle em vez de user
-      if (urls === PROXIES) {
-        console.warn('[SuperVídeo] Tentando RSS com channel_id...');
-        var RSS2 = 'https://www.youtube.com/feeds/videos.xml?channel_id=UCHuWz6K-JEbJzEfmHVbhFEg';
-        tryProxy(0, PROXIES.map(function(p){ return [p, RSS2]; }));
-      }
-      return;
-    }
-    var target = Array.isArray(urls[index]) ? urls[index][0] + encodeURIComponent(urls[index][1]) : urls[index] + encodeURIComponent(RSS);
-    fetch(target)
-      .then(function(r) {
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        return r.text();
-      })
-      .then(function(text) {
-        if (text.indexOf('<entry>') === -1) throw new Error('Sem entries');
-        parseAndRender(text);
-      })
-      .catch(function(err) {
-        console.warn('[SuperVídeo] Proxy ' + index + ' falhou:', err.message);
-        tryProxy(index + 1, urls);
+  fetch('/api/youtube-videos')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (!data.videos || !data.videos.length) return;
+      GRID.innerHTML = '';
+      data.videos.forEach(function(v) {
+        var card = buildCard(v.id, v.title);
+        GRID.appendChild(card);
+        io.observe(card);
       });
-  }
-
-  tryProxy(0, PROXIES);
+    })
+    .catch(function(err) {
+      console.warn('[SuperVídeo] API indisponível, usando vídeos fixos.', err);
+    });
 })();
 </script>
 </body>
