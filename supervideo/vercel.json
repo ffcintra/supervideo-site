@@ -1,5 +1,11 @@
 {
   "version": 2,
-  "builds": [{ "src": "**/*", "use": "@vercel/static" }],
-  "routes": [{ "src": "/(.*)", "dest": "/$1" }]
+  "builds": [
+    { "src": "api/youtube-videos.js", "use": "@vercel/node" },
+    { "src": "**/*", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { "src": "/api/youtube-videos", "dest": "/api/youtube-videos.js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
 }
